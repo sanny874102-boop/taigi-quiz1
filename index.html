@@ -126,12 +126,21 @@ function renderQuestion() {
 
 // 4. 判斷答案
 function checkAnswer(selected, correct) {
-    if (selected === correct) {
-        score++;
-    }
-    currentIndex++;
-    document.getElementById('score-board').innerText = `目前分數: ${score}`;
-    renderQuestion();
+  const current = quizList[currentIndex];
+    const container = document.getElementById('options-container');
+    const buttons = container.getElementsByTagName('button');
+    
+    // 禁用所有按鈕防止重複點擊
+    for (let btn of buttons) {
+        btn.disabled = true;
+        if (btn.innerText === correct) {
+            btn.style.background = "#dcfce7"; // 正確變綠
+            btn.style.borderColor = "#22c55e";
+        }
+        if (btn.innerText === selected && selected !== correct) {
+            btn.style.background = "#fee2e2"; // 錯誤變紅
+            btn.style.borderColor = "#ef4444";
+        }
 }
 
 function showResult() {
@@ -144,4 +153,5 @@ init();
 </script>
 
 </body>
+
 </html>
