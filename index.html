@@ -126,7 +126,7 @@ function renderQuestion() {
 
 // 4. 判斷答案
 function checkAnswer(selected, correct) {
-  const current = quizList[currentIndex];
+ const current = quizList[currentIndex];
     const container = document.getElementById('options-container');
     const buttons = container.getElementsByTagName('button');
     
@@ -141,6 +141,25 @@ function checkAnswer(selected, correct) {
             btn.style.background = "#fee2e2"; // 錯誤變紅
             btn.style.borderColor = "#ef4444";
         }
+    }
+
+    // 顯示解說
+    const hintBox = document.getElementById('hint-display');
+    if (selected === correct) {
+        score++;
+        hintBox.innerHTML = `<b style="color: #22c55e;">正確！</b><br>完整語詞：${current.hanji} (${current.phingim})`;
+    } else {
+        hintBox.innerHTML = `<b style="color: #ef4444;">答錯了...</b><br>正確答案是「${correct}」<br>完整語詞：${current.hanji} (${current.phingim})`;
+    }
+
+    document.getElementById('score-board').innerText = `目前分數: ${score}`;
+
+    // 延遲 2 秒後進入下一題，讓使用者有時間看解說
+    setTimeout(() => {
+        currentIndex++;
+        renderQuestion();
+    }, 2000);
+}
 }
 
 function showResult() {
@@ -155,3 +174,4 @@ init();
 </body>
 
 </html>
+
