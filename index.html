@@ -9,44 +9,37 @@
         #quiz-container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 500px; text-align: center; }
         .question-box { background: #eef2ff; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
         .question-text { font-size: 32px; font-weight: bold; color: #1e3a8a; letter-spacing: 2px; }
-        .hint-text { font-size: 14px; color: #64748b; margin-top: 10px; }
+        .hint-text { font-size: 18px; color: #475569; margin-top: 15px; line-height: 1.5; min-height: 3em; }
         .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         button { padding: 15px; font-size: 20px; cursor: pointer; border: 2px solid #e2e8f0; border-radius: 8px; background: white; transition: all 0.2s; }
-        button:hover { background: #f8fafc; border-color: #3b82f6; color: #3b82f6; }
-        button:active { transform: scale(0.98); }
+        button:hover:not(:disabled) { background: #f8fafc; border-color: #3b82f6; color: #3b82f6; }
+        button:disabled { cursor: default; }
         #score-board { margin-top: 20px; font-weight: bold; color: #334155; }
         .hidden { display: none; }
-        .result-screen { font-size: 20px; }
     </style>
 </head>
 <body>
 
 <div id="quiz-container">
-    <div id="setup">
-        <h2>台語克漏字測驗載入中...</h2>
-    </div>
-
+    <div id="setup"><h2>載入中...</h2></div>
     <div id="quiz-box" class="hidden">
         <div id="progress" style="margin-bottom: 10px; color: #64748b;">第 1 / 100 題</div>
         <div class="question-box">
-            <div class="question-text" id="question-display">載入中...</div>
-            <div class="hint-text" id="hint-display">請選出空格中的正確部分</div>
+            <div class="question-text" id="question-display"></div>
+            <div class="hint-text" id="hint-display">載入中...</div>
         </div>
         <div class="options" id="options-container"></div>
         <div id="score-board">目前分數: 0</div>
     </div>
-
     <div id="result" class="hidden">
-        <div class="result-screen">
-            <h2>測驗完成！</h2>
-            <p id="final-score"></p>
-            <button onclick="location.reload()" style="width: 100%; background: #3b82f6; color: white;">重新挑戰</button>
-        </div>
+        <h2>測驗完成！</h2>
+        <p id="final-score"></p>
+        <button onclick="location.reload()" style="width: 100%; background: #3b82f6; color: white;">重新挑戰</button>
     </div>
 </div>
 
 <script>
-// --- 請在此處替換成你的 Google Sheets CSV 連結 ---
+// --- 請記得替換你的 CSV 連結 ---
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQL_qfHDa8zQs3krnY7DFt-PZSKy2rEsu22Vt1iEe41NfaL6h6ix24IDNG33Pefy_cK7eN6aeOFYhTN/pub?output=csv';
 
 let allData = [];
@@ -54,69 +47,46 @@ let quizList = [];
 let currentIndex = 0;
 let score = 0;
 
-// 1. 取得資料
 async function init() {
     try {
         const response = await fetch(CSV_URL);
         const data = await response.text();
         const rows = data.split('\n').slice(1).filter(r => r.trim() !== '');
-        
         allData = rows.map(row => {
             const cols = row.split(',');
             return { hanji: cols[0].trim(), phingim: cols[1].trim() };
         });
-
-        // 隨機抽 100 題，前 50 題考漢字克漏，後 50 題考拼音克漏
         const shuffled = allData.sort(() => 0.5 - Math.random());
         const part1 = shuffled.slice(0, 50).map(q => ({...q, type: 'H'}));
         const part2 = shuffled.slice(50, 100).map(q => ({...q, type: 'P'}));
-        
         quizList = [...part1, ...part2].sort(() => 0.5 - Math.random());
-
         document.getElementById('setup').classList.add('hidden');
         document.getElementById('quiz-box').classList.remove('hidden');
         renderQuestion();
-    } catch (e) {
-        document.getElementById('setup').innerHTML = "載入失敗，請確認 CSV 連結與網路狀態。";
-    }
+    } catch (e) { document.getElementById('setup').innerText = "載入失敗"; }
 }
 
-// 2. 渲染題目
 function renderQuestion() {
-    if (currentIndex >= quizList.length) {
-        showResult();
-        return;
-    }
-
+    if (currentIndex >= quizList.length) { showResult(); return; }
     const current = quizList[currentIndex];
     const isHanji = current.type === 'H';
-    
-    // 拆分：漢字按字拆，拼音按連字號拆
     let parts = isHanji ? current.hanji.split('') : current.phingim.split('-');
     const blankIndex = Math.floor(Math.random() * parts.length);
     const correctAnswer = parts[blankIndex];
-
-    // 製作顯示文字：例如 "勞__" 或 "ta̍k-___"
     let displayParts = [...parts];
     displayParts[blankIndex] = "（　）";
-    const questionText = isHanji ? displayParts.join('') : displayParts.join('-');
-
-    document.getElementById('progress').innerText = `第 ${currentIndex + 1} / ${quizList.length} 題`;
-    document.getElementById('question-display').innerText = questionText;
-    document.getElementById('hint-display').innerText = isHanji ? `提示：${current.phingim}` : `提示：${current.hanji}`;
-
-    // 3. 準備選項
-    // 從所有題目中抓取干擾項
-    let distractors = allData.flatMap(d => isHanji ? d.hanji.split('') : d.phingim.split('-'))
-                             .filter(item => item !== correctAnswer && item.length > 0);
     
-    let uniqueDistractors = [...new Set(distractors)];
-    let finalOptions = [correctAnswer, ...uniqueDistractors.sort(() => 0.5 - Math.random()).slice(0, 3)];
-    finalOptions.sort(() => 0.5 - Math.random());
+    document.getElementById('progress').innerText = `第 ${currentIndex + 1} / ${quizList.length} 題`;
+    document.getElementById('question-display').innerText = isHanji ? displayParts.join('') : displayParts.join('-');
+    document.getElementById('hint-display').innerHTML = isHanji ? `提示：${current.phingim}` : `提示：${current.hanji}`;
+
+    let distractors = allData.flatMap(d => isHanji ? d.hanji.split('') : d.phingim.split('-')).filter(i => i !== correctAnswer && i.length > 0);
+    let options = [correctAnswer, ...[...new Set(distractors)].sort(() => 0.5 - Math.random()).slice(0, 3)];
+    options.sort(() => 0.5 - Math.random());
 
     const container = document.getElementById('options-container');
     container.innerHTML = '';
-    finalOptions.forEach(opt => {
+    options.forEach(opt => {
         const btn = document.createElement('button');
         btn.innerText = opt;
         btn.onclick = () => checkAnswer(opt, correctAnswer);
@@ -124,26 +94,14 @@ function renderQuestion() {
     });
 }
 
-// 4. 判斷答案
 function checkAnswer(selected, correct) {
- const current = quizList[currentIndex];
-    const container = document.getElementById('options-container');
-    const buttons = container.getElementsByTagName('button');
-    
-    // 禁用所有按鈕防止重複點擊
+    const current = quizList[currentIndex];
+    const buttons = document.getElementById('options-container').getElementsByTagName('button');
     for (let btn of buttons) {
         btn.disabled = true;
-        if (btn.innerText === correct) {
-            btn.style.background = "#dcfce7"; // 正確變綠
-            btn.style.borderColor = "#22c55e";
-        }
-        if (btn.innerText === selected && selected !== correct) {
-            btn.style.background = "#fee2e2"; // 錯誤變紅
-            btn.style.borderColor = "#ef4444";
-        }
+        if (btn.innerText === correct) { btn.style.background = "#dcfce7"; btn.style.borderColor = "#22c55e"; }
+        if (btn.innerText === selected && selected !== correct) { btn.style.background = "#fee2e2"; btn.style.borderColor = "#ef4444"; }
     }
-
-    // 顯示解說
     const hintBox = document.getElementById('hint-display');
     if (selected === correct) {
         score++;
@@ -151,14 +109,8 @@ function checkAnswer(selected, correct) {
     } else {
         hintBox.innerHTML = `<b style="color: #ef4444;">答錯了...</b><br>正確答案是「${correct}」<br>完整語詞：${current.hanji} (${current.phingim})`;
     }
-
     document.getElementById('score-board').innerText = `目前分數: ${score}`;
-
-    // 延遲 2 秒後進入下一題，讓使用者有時間看解說
-    setTimeout(() => {
-        currentIndex++;
-        renderQuestion();
-    }, 2000);
+    setTimeout(() => { currentIndex++; renderQuestion(); }, 2000);
 }
 
 function showResult() {
@@ -166,12 +118,7 @@ function showResult() {
     document.getElementById('result').classList.remove('hidden');
     document.getElementById('final-score').innerText = `你的得分：${score} / ${quizList.length}`;
 }
-
 init();
 </script>
-
 </body>
-
 </html>
-
-
