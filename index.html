@@ -52,20 +52,51 @@ async function init() {
         const response = await fetch(CSV_URL);
         const data = await response.text();
         const rows = data.split('\n').slice(1).filter(r => r.trim() !== '');
+        
         allData = rows.map(row => {
             const cols = row.split(',');
             return { hanji: cols[0].trim(), phingim: cols[1].trim() };
         });
-        const shuffled = allData.sort(() => 0.5 - Math.random());
-        const part1 = shuffled.slice(0, 50).map(q => ({...q, type: 'H'}));
-        const part2 = shuffled.slice(50, 100).map(q => ({...q, type: 'P'}));
+
+        // --- 新增：排除重複機制 ---
+        // 從瀏覽器記憶體取得「已考過的題目 ID」清單
+        let history = JSON.parse(localStorage.getItem('taigi_quiz_history') || "[]");
+        
+        // 過濾掉最近出現過的題目（若題庫夠大，則排除歷史紀錄中的題目）
+        // 假設每次 100 題，存 5 次即排除 500 題
+        let availablePool = allData.filter(q => !history.includes(q.hanji + q.phingim));
+
+        // 如果剩餘題目不足 100 題，清空歷史紀錄重新開始（保險機制）
+        if (availablePool.length < 100) {
+            availablePool = allData;
+            history = [];
+        }
+
+        const shuffled = availablePool.sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, 100);
+
+        // 將這 100 題加入歷史紀錄
+        const newHistory = [...history, ...selected.map(q => q.hanji + q.phingim)];
+        // 只保留最近 500 題的紀錄 (5次測驗)
+        if (newHistory.length > 500) {
+            newHistory.splice(0, newHistory.length - 500);
+        }
+        localStorage.setItem('taigi_quiz_history', JSON.stringify(newHistory));
+        // --- 結束排除機制 ---
+
+        const part1 = selected.slice(0, 50).map(q => ({...q, type: 'H'}));
+        const part2 = selected.slice(50, 100).map(q => ({...q, type: 'P'}));
+        
         quizList = [...part1, ...part2].sort(() => 0.5 - Math.random());
+        
         document.getElementById('setup').classList.add('hidden');
         document.getElementById('quiz-box').classList.remove('hidden');
         renderQuestion();
-    } catch (e) { document.getElementById('setup').innerText = "載入失敗"; }
+    } catch (e) { 
+        document.getElementById('setup').innerText = "載入失敗"; 
+        console.error(e);
+    }
 }
-
 function renderQuestion() {
     if (currentIndex >= quizList.length) { showResult(); return; }
     const current = quizList[currentIndex];
@@ -122,3 +153,4 @@ init();
 </script>
 </body>
 </html>
+
